@@ -1,5 +1,14 @@
 # Day 11 — Controlled Agent Security (2026)
 
+## Thông tin học viên & Bài nộp
+- **Họ và tên:** Phạm Hoàng Đức Minh
+- **MSSV:** 2A202604114
+- **Lớp / Ca:** K5-L3B (Day 11)
+- **Repo:** `K5-L3B-DAY11-PhamHoangDucMinh-2A202604114-Guardrails-HITL-Responsible-AI`
+- **Link nộp LMS:** https://github.com/PH31M/K5-L3B-DAY11-PhamHoangDucMinh-2A202604114-Guardrails-HITL-Responsible-AI
+
+---
+
 > 👤 **Hình thức:** bài tập **cá nhân** (1 người / 1 MSSV).  
 > 🎯 **Mục tiêu:** đóng vai **Blue Team** để học cách xây Guardrails phòng thủ, rồi đóng vai **Red Team** để tấn công agent **Red** hoặc **Red Advance**.  
 > ✅ Làm theo **Checkpoint 1 → 5** trong [`CHECKPOINTS.md`](CHECKPOINTS.md) · nộp theo [`SUBMISSION.md`](SUBMISSION.md).
