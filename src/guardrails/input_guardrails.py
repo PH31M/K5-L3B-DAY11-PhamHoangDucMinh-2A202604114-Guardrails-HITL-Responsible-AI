@@ -51,14 +51,24 @@ def detect_injection(user_input: str) -> InputStatus:
     Returns:
         ``"BLOCK"`` if injection detected (chặn), ``"ALLOW"`` otherwise (cho qua).
     """
+    # 1. Canonicalize Unicode and strip invisible characters (zero-width spaces, soft hyphens, etc.)
+    normalized = re.sub(r"[\u200b\u200c\u200d\u200e\u200f\ufeff\u00ad]", "", user_input)
+    # Collapse multiple whitespace characters
+    normalized = re.sub(r"\s+", " ", normalized)
+
     INJECTION_PATTERNS = [
-        # TODO: Add at least 5 regex patterns
-        # Example:
-        # r"ignore (all )?(previous|above) instructions",
+        r"ignore\s+(?:all\s+)?(?:previous|above|prior)\s+instructions",
+        r"you\s+are\s+now\b",
+        r"\bsystem\s+prompt\b",
+        r"reveal\s+(?:your\s+)?(?:instructions|prompt|system\s+prompt)",
+        r"pretend\s+you\s+are\b",
+        r"act\s+as\s+(?:a\s+|an\s+)?unrestricted\b",
+        r"disregard\s+(?:all\s+)?(?:previous|prior|above)\s+instructions",
+        r"show\s+(?:me\s+)?(?:the\s+)?(?:admin\s+password|internal\s+password|secret)\b",
     ]
 
     for pattern in INJECTION_PATTERNS:
-        if re.search(pattern, user_input, re.IGNORECASE):
+        if re.search(pattern, normalized, re.IGNORECASE):
             return "BLOCK"
     return "ALLOW"
 
@@ -74,6 +84,14 @@ def detect_injection(user_input: str) -> InputStatus:
 # Return ``"ALLOW"`` if banking-related and OK.
 # ============================================================
 
+def _normalize_text(text: str) -> str:
+    import unicodedata
+    cleaned = re.sub(r"[\u200b\u200c\u200d\u200e\u200f\ufeff\u00ad]", "", text)
+    nfd = unicodedata.normalize("NFD", cleaned)
+    no_accents = "".join(c for c in nfd if unicodedata.category(c) != "Mn").replace("đ", "d").replace("Đ", "D")
+    return no_accents.lower()
+
+
 def topic_filter(user_input: str) -> InputStatus:
     """Decide whether the input is on-topic for VinBank.
 
@@ -84,14 +102,28 @@ def topic_filter(user_input: str) -> InputStatus:
         ``"BLOCK"`` = chặn (off-topic hoặc topic cấm).
         ``"ALLOW"`` = cho qua (câu banking hợp lệ).
     """
-    input_lower = user_input.lower()
+    raw_lower = re.sub(r"[\u200b\u200c\u200d\u200e\u200f\ufeff\u00ad]", "", user_input).lower()
+    norm = _normalize_text(user_input)
 
-    # TODO: Implement logic:
     # 1. If input contains any blocked topic -> return "BLOCK"
-    # 2. If input doesn't contain any allowed topic -> return "BLOCK"
-    # 3. Otherwise -> return "ALLOW"
+    for blocked in BLOCKED_TOPICS:
+        blocked_norm = _normalize_text(blocked)
+        pattern = r"\b" + re.escape(blocked_norm) + r"\b"
+        if re.search(pattern, norm) or re.search(r"\b" + re.escape(blocked.lower()) + r"\b", raw_lower):
+            return "BLOCK"
 
-    pass  # Replace with your implementation
+    # 2. If input doesn't contain any allowed topic -> return "BLOCK"
+    has_allowed = False
+    for allowed in ALLOWED_TOPICS:
+        allowed_norm = _normalize_text(allowed)
+        if allowed_norm in norm or allowed.lower() in raw_lower:
+            has_allowed = True
+            break
+
+    if not has_allowed:
+        return "BLOCK"
+
+    return "ALLOW"
 
 
 # ============================================================
@@ -144,14 +176,18 @@ class InputGuardrailPlugin(base_plugin.BasePlugin):
         self.total_count += 1
         text = self._extract_text(user_message)
 
-        # TODO: Implement logic:
         # 1. Call detect_injection(text)
-        #    - If "BLOCK": increment blocked_count, return self._block_response("...")
-        # 2. Call topic_filter(text)
-        #    - If "BLOCK": increment blocked_count, return self._block_response("...")
-        # 3. If both return "ALLOW": return None (let message through)
+        if detect_injection(text) == "BLOCK":
+            self.blocked_count += 1
+            return self._block_response("I cannot process that request. Prompt injection detected.")
 
-        pass  # Replace with your implementation
+        # 2. Call topic_filter(text)
+        if topic_filter(text) == "BLOCK":
+            self.blocked_count += 1
+            return self._block_response("I can only help with banking-related questions.")
+
+        # 3. If both return "ALLOW": return None (let message through)
+        return None
 
 
 # ============================================================
